@@ -1,0 +1,513 @@
+CELL TYPE: markdown
+## **Here is the import of the dataset file**
+
+CELL TYPE: markdown
+## **Importing the Required Libraries**
+
+CELL TYPE: code
+# Standard Library Imports
+import json
+
+# Data Manipulation and Analysis
+import pandas as pd
+import numpy as np
+from scipy import stats
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from scipy.stats import skew, kurtosis
+
+
+# Data Visualization
+import matplotlib.pyplot as plt
+import seaborn as sns
+# from wordcloud import WordCloud, STOPWORDS
+
+# Machine Learning Preprocessing
+from sklearn.impute import SimpleImputer
+
+# Jupyter Notebook Settings
+%matplotlib inline
+
+# Data Modeling 
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.linear_model import Lasso
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+
+# Unsupervised Learning
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn.decomposition import PCA
+
+CELL TYPE: markdown
+## **Dataset Overview**
+
+CELL TYPE: markdown
+## **Using Selection Methods for Data Operations**
+
+CELL TYPE: markdown
+## **Using Functions to Perform Count Operations**
+
+CELL TYPE: markdown
+## **Using Crosstab Function on the DataFrame**
+
+CELL TYPE: markdown
+## **Dropping Columns with Excessive Missing Data**
+Some columns might be missing too much information to be useful for modeling. We will drop any column where more than 70% of the data is missing.
+
+CELL TYPE: markdown
+## **Xg Calculation**
+Certain matchs contain 0.0 as Expected goals(xg). We fill this matches with this equation
+
+CELL TYPE: markdown
+## **Checking and Removing Duplicates**
+Duplicate entries can skew our analysis and model predictions. We will identify and drop any exact duplicate rows in the dataset.
+
+CELL TYPE: markdown
+## **Descriptive Statistics Summary**
+This section provides comprehensive statistical measures for all numerical features to understand the central tendency, dispersion, and distribution shape of our data.
+
+CELL TYPE: markdown
+## **Outlier Detection Summary**
+Before handling the outliers, we will calculate exactly how many exist in each numerical column using the IQR (Interquartile Range) method. This helps us understand the spread of extreme match events (like games with unusually high red cards or goals).
+
+CELL TYPE: markdown
+## **Visualize Outliers using Box Plots before removing outliers**
+
+CELL TYPE: code
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# The specific columns you just checked for outliers
+outlier_cols = ['Shots off target', 'Shots on target', 'Fouls', 'Corner kicks', 'Yellow cards']
+
+# Create a 4x2 grid (4 rows, 2 columns) to fit the 7 features
+fig, axes = plt.subplots(4, 2, figsize=(14, 20))
+fig.suptitle("Box Plot Visualization (Outlier Check)", fontsize=18)
+
+# Flatten the axes array to easily loop through it
+axes = axes.flatten()
+
+for index, col in enumerate(outlier_cols):
+    # Plot the boxplot on the correct subplot
+    sns.boxplot(data=df2, y=col, ax=axes[index], color=sns.color_palette("husl", len(outlier_cols))[index])
+    
+    # Set titles and labels
+    axes[index].set_title(f"{col.replace('_', ' ').title()} Distribution", fontsize=14)
+    axes[index].set_ylabel(col.upper())
+
+# We only have 7 columns, but 8 subplots in a 4x2 grid. 
+# We will hide the empty 8th subplot (index 7) for a clean look.
+axes[7].set_visible(False)
+
+# Automatically adjust the padding so titles and labels don't overlap
+plt.tight_layout(rect=[0, 0, 1, 0.98])
+plt.show()
+
+CELL TYPE: markdown
+## **Visualize Outliers using Box Plots**
+
+CELL TYPE: code
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Selecting 8 relevant numerical columns for a clean 4x2 grid
+visual_cols = ['Shots off target', 'Shots on target', 'Fouls', 'Corner kicks', 'Yellow cards', 'Goals for']
+
+# Create a 4x2 grid (4 rows, 2 columns) to fit the 8 features
+fig, axes = plt.subplots(4, 2, figsize=(14, 20))
+fig.suptitle("Box Plot Visualization of Football Match Statistics", fontsize=18)
+
+for index, col in enumerate(visual_cols):
+    # Determine the exact row and column for the current plot
+    ax = axes[index // 2, index % 2]
+    
+    # Plot the boxplot
+    sns.boxplot(data=df2, y=col, ax=ax, color=sns.color_palette("husl", len(visual_cols))[index])
+    
+    # Set titles and labels
+    ax.set_title(f"{col.replace('_', ' ').title()} Distribution", fontsize=14)
+    ax.set_ylabel(col.upper())
+
+# Automatically adjust the padding so titles and labels don't overlap
+plt.tight_layout(rect=[0, 0, 1, 0.98])
+plt.show()
+
+
+CELL TYPE: markdown
+## **Manual Covariance and Correlation Calculation**
+Here, we will manually calculate the covariance and Pearson correlation coefficient between Expected Goals (`xg`) and Actual Goals Scored (`goals_for`) to understand the mathematical relationship between these two variables.
+
+CELL TYPE: code
+df2.plot.scatter(x = 'Shots off target', y = 'Goals for');
+plt.show()
+
+CELL TYPE: markdown
+## **In The Automatic Correlation Matrix I Used The Orginal DF**
+
+CELL TYPE: code
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6))
+sns.regplot(data=df, x='Fouls', y='Corner kicks', scatter_kws={'alpha':0.5}, line_kws={'color':'red'})
+plt.title(f'Automatic Correlation Analysis (r = {Fouls_Corners_corr:.4f})')
+plt.show()
+
+CELL TYPE: markdown
+## **In The Automatic Correlation Matrix I Used The Cleaned DF**
+
+CELL TYPE: code
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6))
+sns.regplot(data=df2, x='Fouls', y='Corner kicks', scatter_kws={'alpha':0.5}, line_kws={'color':'red'})
+plt.title(f'Automatic Correlation Analysis (r = {Fouls_Corners_corr:.4f})')
+plt.show()
+
+CELL TYPE: markdown
+## **Correlation Matrix and Target Feature Analysis**
+Visualizing the correlation matrix for all numerical features and analyzing their relationship strength with our target variable (Goals For).
+
+CELL TYPE: code
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+numeric_cols = df.select_dtypes(include=[np.number]).columns
+correlation_matrix = df[numeric_cols].corr();
+
+plt.figure(figsize=(10, 8))
+
+sns.heatmap(correlation_matrix, annot = True, cmap = 'coolwarm', center=  0, fmt = '.3f', linewidths=0.5, square = True, cbar_kws={'label': 'Correlation Coff'})
+
+plt.title("Correlation matrix for the numerical features")
+plt.show()
+
+print("Correlation with target (goals_for)")
+
+# Changed 'Rating' to 'goals_for' as our target variable
+rating_corr = correlation_matrix['Goals for'].drop('Goals for').sort_values(ascending=True)
+
+for feature, corr in rating_corr.items():
+    strength = 'Strong' if abs(corr) > 0.5 else 'Moderate' if abs(corr) > 0.3 else "Weak"
+    direction = "Positive" if corr > 0 else "Negative";
+    print(f"{feature}: r = {corr:.4f} ({strength} {direction} correlation)")
+
+CELL TYPE: markdown
+## **Member 5: Yossef Nasr**
+
+CELL TYPE: markdown
+## **Correlation Matrix and Target Feature Analysis for Cleaned dataset**
+Visualizing the correlation matrix for all numerical features and analyzing their relationship strength with our target variable (Goals For).
+
+CELL TYPE: code
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+numeric_cols = df2.select_dtypes(include=[np.number]).columns
+correlation_matrix = df2[numeric_cols].corr()
+
+plt.figure(figsize=(10, 8))
+
+sns.heatmap(correlation_matrix, annot = True, cmap = 'coolwarm', center=  0, fmt = '.3f', linewidths=0.5, square = True, cbar_kws={'label': 'Correlation Coff'})
+
+plt.title("Correlation matrix for the numerical features")
+plt.show()
+
+print("Correlation with target (goals_for)")
+
+# Changed 'Rating' to 'goals_for' as our target variable
+rating_corr = correlation_matrix['Goals for'].drop('Goals for').sort_values(ascending=True)
+
+for feature, corr in rating_corr.items():
+    strength = 'Strong' if abs(corr) > 0.5 else 'Moderate' if abs(corr) > 0.3 else "Weak"
+    direction = "Positive" if corr > 0 else "Negative"
+    print(f"{feature}: r = {corr:.4f} ({strength} {direction} correlation)")
+
+CELL TYPE: markdown
+## **Feature engineering (Skewness)**
+
+CELL TYPE: markdown
+Skewness graph before and after transformation using sqrt for Cleaned dataset
+
+CELL TYPE: code
+plt.figure(figsize=(15,5))
+
+#Skewness Graph before transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,1)
+s=skew(df2["Total shots"])
+sns.histplot(df2["Total shots"],kde=True,color="red")
+plt.title("Skewness before transformation:\n"+str(s))
+
+#Skewness Graph after transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,2)
+df2["Total shots_sqrt"] = np.sqrt(df2["Total shots"])
+s2=skew(df2["Total shots_sqrt"])
+sns.histplot(df2["Total shots_sqrt"],kde=True,color="red")
+plt.title("Skewness after transformation by sqrt:\n"+str(s2))
+
+
+plt.tight_layout()
+plt.show()
+
+CELL TYPE: markdown
+Skewness graph before and after transformation using log for Cleaned dataset*
+
+
+CELL TYPE: code
+plt.figure(figsize=(15,5))
+
+#Skewness Graph before transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,1)
+s=skew(df2["Expected goals (xG)"])
+sns.histplot(df2["Expected goals (xG)"],kde=True,color="red")
+plt.title("Skewness before transformation:\n"+str(s))
+
+#Skewness Graph after transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,2)
+df2["Expected goals (xG)_log"] = np.log1p(df2["Expected goals (xG)"])
+s2=skew(df2["Expected goals (xG)_log"])
+sns.histplot(df2["Expected goals (xG)_log"],kde=True,color="red")
+plt.title("Skewness after transformation by log:\n"+str(s2))
+
+
+plt.tight_layout()
+plt.show()
+
+CELL TYPE: code
+plt.figure(figsize=(15,5))
+
+#Skewness Graph before transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,1)
+s=skew(df2["Goals for"])
+sns.histplot(df2["Goals for"],kde=True,color="red")
+plt.title("Skewness before transformation:\n"+str(s))
+
+#Skewness Graph after transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,2)
+df2["Goals for_log"] = np.log1p(df2["Goals for"])
+s2=skew(df2["Goals for_log"])
+sns.histplot(df2["Goals for_log"],kde=True,color="red")
+plt.title("Skewness after transformation by log:\n"+str(s2))
+
+
+plt.tight_layout()
+plt.show()
+
+CELL TYPE: code
+plt.figure(figsize=(15,5))
+
+#Skewness Graph before transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,1)
+s=skew(df2["Goals against"])
+sns.histplot(df2["Goals against"],kde=True,color="red")
+plt.title("Skewness before transformation:\n"+str(s))
+
+#Skewness Graph after transformation for df2 (cleaned dataframe)
+plt.subplot(1,2,2)
+df2["Goals against_log"] = np.log1p(df2["Goals against"])
+s2=skew(df2["Goals against_log"])
+sns.histplot(df2["Goals against_log"],kde=True,color="red")
+plt.title("Skewness after transformation by log:\n"+str(s2))
+
+
+plt.tight_layout()
+plt.show()
+
+CELL TYPE: markdown
+## **Saving the Dataset here**
+
+CELL TYPE: markdown
+# Bivariate Analysis: Categorical Relationships
+
+CELL TYPE: markdown
+## **Home Advantage and Match Outcomes across Europe's Top 5 Leagues**
+This heatmap analyzes how venue could infleunce the result of a match from travel fatigue, crowd support etc
+
+CELL TYPE: code
+plt.figure(figsize=(22, 50)) 
+
+# PREMIER LEAGUE
+ax1 = plt.subplot(3, 2, 1)
+df3 = df2[df2["League"]=="premier"]
+ct1=pd.crosstab([df3.Team, df3.venue], df3.result)
+ct1 = ct1.reindex(columns=['L', 'D', 'W'])
+sns.heatmap(ct1,cmap='coolwarm', annot=True, fmt='d', cbar=False)
+plt.title("premier", fontsize=16)
+plt.ylabel("") 
+
+# BUNDESLIGA
+ax2 = plt.subplot(3, 2, 2)
+df4 = df2[df2["League"]=="bundesliga"]
+ct2=pd.crosstab([df4.Team, df4.venue], df4.result)
+ct2 = ct2.reindex(columns=['L', 'D', 'W'])
+sns.heatmap(ct2,cmap='coolwarm', annot=True, fmt='d',cbar=False)
+plt.title("bundesliga", fontsize=16)
+plt.ylabel("")
+
+# LA LIGA
+ax3 = plt.subplot(3, 2, 3)
+df5 = df2[df2["League"]=="laliga"]
+ct3=pd.crosstab([df5.Team, df5.venue], df5.result)
+ct3 = ct3.reindex(columns=['L', 'D', 'W'])
+sns.heatmap(ct3,cmap='coolwarm', annot=True, fmt='d', cbar=False)
+plt.title("laliga", fontsize=16)
+plt.ylabel("")
+
+# LIGUE 1
+ax4 = plt.subplot(3, 2, 4)
+df6 = df2[df2["League"]=="ligue"]
+ct4=pd.crosstab([df6.Team, df6.venue], df6.result)
+ct4 = ct4.reindex(columns=['L', 'D', 'W'])
+sns.heatmap(ct4,cmap='coolwarm', annot=True, fmt='d')
+plt.title("ligue", fontsize=16)
+plt.ylabel("")
+
+# SERIE A
+ax5 = plt.subplot(3, 2, 5)
+df7 = df2[df2["League"]=="serie"]
+ct5=pd.crosstab([df7.Team, df7.venue], df7.result)
+ct5 = ct5.reindex(columns=['L', 'D', 'W'])
+sns.heatmap(ct5,cmap='coolwarm', annot=True, fmt='d', cbar=False)
+plt.title("serie", fontsize=16)
+plt.ylabel("")
+
+plt.subplots_adjust(hspace=0.2, wspace=0.5) 
+plt.show()
+
+CELL TYPE: markdown
+## **Home Advantage and Match Outcomes overall**
+This heatmap analyzes how venue could infleunce the result of a match across all analyzed matches from travel fatigue, crowd support etc
+
+CELL TYPE: code
+ct6=pd.crosstab(df2.venue,df2.result)
+ct6 = ct6.reindex(columns=['L', 'D', 'W'])
+sns.heatmap(ct6,annot=True, cmap = 'coolwarm', fmt='d')
+
+CELL TYPE: markdown
+# Univariate Exploratory Data Analysis (EDA) & Outlier Detection
+
+CELL TYPE: code
+sns.set_style("whitegrid")
+plt.rcParams["figure.figsize"] = (8,5)
+
+CELL TYPE: code
+result_counts = df['result'].value_counts()
+result_percent = df['result'].value_counts(normalize=True) * 100
+
+sns.countplot(data=df, x='result')
+plt.title("Distribution of Match Results")
+plt.show()
+
+print(pd.DataFrame({"Count": result_counts,
+                    "Percentage": result_percent.round(2)}))
+
+CELL TYPE: code
+venue_counts = df['venue'].value_counts()
+venue_percent = df['venue'].value_counts(normalize=True) * 100
+
+sns.countplot(data=df, x='venue')
+plt.title("Home vs Away Distribution")
+plt.show()
+
+print(pd.DataFrame({"Count": venue_counts,
+                    "Percentage": venue_percent.round(2)}))
+
+CELL TYPE: code
+sns.countplot(data=df, x='League')
+plt.xticks(rotation=45)
+plt.title("Matches per League")
+plt.show()
+
+CELL TYPE: code
+sns.histplot(df['Goals for'], bins=15, kde=True)
+plt.title("Distribution of Goals Scored")
+plt.show()
+
+CELL TYPE: code
+sns.histplot(df['Total shots'], bins=20, kde=True)
+plt.title("Distribution of Shots")
+plt.show()
+
+CELL TYPE: code
+sns.histplot(df['Expected goals (xG)'], bins=20, kde=True)
+plt.title("Distribution of Expected Goals (xG)")
+plt.show()
+
+CELL TYPE: code
+sns.boxplot(x=df['Goals for'])
+plt.title("Boxplot of Goals Scored")
+plt.show()
+
+CELL TYPE: code
+sns.boxplot(x=df['Total shots'])
+plt.title("Boxplot of Shots")
+plt.show()
+
+CELL TYPE: code
+# 3. Data Visualizations
+
+sns.set_style("whitegrid")
+
+#  Boxplot for 'shots' (as requested in your notebook) 
+width = 8
+height = 4
+plt.figure(figsize=(width, height))
+sns.boxplot(x=df_eda['Shots off target'], color='blue')#
+plt.title("Boxplot of Shots (EDA)", fontsize=14)
+plt.xlabel("Number of Shots", fontsize=12)
+plt.show()
+
+
+
+CELL TYPE: code
+#  Match Results Distribution (W, D, L)
+width = 6
+height = 4
+plt.figure(figsize=(width, height))
+sns.countplot(data=df_eda, x='result', palette='viridis', order=['W', 'D', 'L'])
+plt.title("Distribution of Match Results", fontsize=14,color='blue', pad=10)
+plt.xlabel("Result (Win / Draw / Loss)", fontsize=12, color='green', labelpad=10)
+plt.ylabel("Count", fontsize=12, color='purple', labelpad=10)
+plt.show()
+
+
+
+CELL TYPE: code
+# Match Results by Venue (Visualizing Home Advantage)
+plt.figure(figsize=(8, 5))
+sns.countplot(data=df_eda, x='venue', hue='result', palette='muted')
+plt.title("Match Results by Venue (Home vs. Away)")
+plt.xlabel("Venue")
+plt.ylabel("Count")
+plt.show()
+
+
+CELL TYPE: code
+#  Goals For vs. Shots on Target 
+width = 8
+height = 5
+plt.figure(figsize=(width, height))
+sns.scatterplot(data=df_eda, x='Shots on target', y='Goals for', hue='result', palette='Set1', s=50, alpha=0.9)# s 
+plt.title("goals scored vs. shots on target")
+plt.xlabel("shots on target")
+plt.ylabel("goals scored")
+plt.show()
+
+
+
+CELL TYPE: code
+#  Correlation Heatmap
+plt.figure(figsize=(10, 6))
+# Select only numerical columns for correlation
+numeric_cols = df_eda.select_dtypes(include=['float64', 'int64', 'int32']).columns
+correlation_matrix = df_eda[numeric_cols].corr()
+
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title("Correlation Heatmap of Numerical Variables")
+plt.show()

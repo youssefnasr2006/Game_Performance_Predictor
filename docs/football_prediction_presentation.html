@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predicting European Football Match Outcomes — ML Presentation</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,300&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green:   #00FF87;
+    --green2:  #00cc6a;
+    --dark:    #080e14;
+    --panel:   #0d1a24;
+    --panel2:  #112233;
+    --border:  rgba(0,255,135,0.18);
+    --text:    #d4e8f0;
+    --muted:   #5a7a8a;
+    --win:     #2ecc71;
+    --draw:    #f39c12;
+    --loss:    #e74c3c;
+    --blue:    #3498db;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-x: hidden;
+  }
+
+  /* ── SLIDE SYSTEM ── */
+  .slide {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 8vw;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .slide.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── SLIDE NUMBERS ── */
+  .slide-num {
+    position: absolute;
+    top: 28px; right: 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 999;
+    background: rgba(8,14,20,0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6vw;
+    height: 54px;
+  }
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.3rem;
+    color: var(--green);
+    letter-spacing: 3px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 6px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+  }
+  .nav-links a:hover { color: var(--green); background: rgba(0,255,135,0.07); }
+
+  /* ── SLIDE 1: TITLE ── */
+  #s1 {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,135,0.07) 0%, transparent 70%),
+      var(--dark);
+    padding-top: 100px;
+  }
+  .pitch-lines {
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background-image:
+      linear-gradient(90deg, var(--green) 1px, transparent 1px),
+      linear-gradient(0deg, var(--green) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+  .title-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 4px;
+    color: var(--green);
+    text-transform: uppercase;
+    margin-bottom: 22px;
+  }
+  h1.main-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.8rem, 7vw, 6rem);
+    line-height: 1.0;
+    color: #fff;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+  }
+  h1.main-title span { color: var(--green); }
+  .title-sub {
+    font-size: 1.05rem;
+    font-weight: 300;
+    color: var(--muted);
+    max-width: 620px;
+    margin: 0 auto 36px;
+  }
+  .authors-block {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .author-chip {
+    font-size: 0.78rem;
+    background: rgba(0,255,135,0.08);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .inst-line {
+    font-size: 0.82rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .tag-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 36px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 12px;
+    color: var(--green);
+    letter-spacing: 1px;
+  }
+
+  /* ── SECTION HEADERS ── */
+  .section-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 4px;
+    color: var(--green);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  h2.section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.8rem);
+    color: #fff;
+    letter-spacing: 1px;
+    line-height: 1.05;
+    margin-bottom: 36px;
+  }
+  h2.section-title span { color: var(--green); }
+
+  /* ── CARDS ── */
+  .card-grid {
+    display: grid;
+    gap: 20px;
+  }
+  .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 26px;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .card:hover { border-color: var(--green); transform: translateY(-3px); }
+  .card-icon { font-size: 1.8rem; margin-bottom: 12px; }
+  .card h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 8px;
+  }
+  .card p { font-size: 0.9rem; color: var(--text); font-weight: 300; }
+
+  /* ── METRIC BOXES ── */
+  .metric-box {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    text-align: center;
+  }
+  .metric-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.8rem;
+    color: var(--green);
+    line-height: 1;
+  }
+  .metric-val.win { color: var(--win); }
+  .metric-val.draw { color: var(--draw); }
+  .metric-val.loss { color: var(--loss); }
+  .metric-val.blue { color: var(--blue); }
+  .metric-label {
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: #050b10;
+    border: 1px solid rgba(0,255,135,0.12);
+    border-left: 3px solid var(--green);
+    border-radius: 8px;
+    padding: 18px 22px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: #a8d8b0;
+    white-space: pre-wrap;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .code-comment { color: #4a7060; }
+  .code-kw { color: #00FF87; }
+  .code-str { color: #f39c12; }
+  .code-num { color: #3498db; }
+
+  /* ── PIPELINE ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 30px 0;
+  }
+  .pipe-step {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text);
+    text-align: center;
+    min-width: 110px;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .pipe-step:hover { background: rgba(0,255,135,0.1); border-color: var(--green); color: var(--green); }
+  .pipe-step small { display: block; font-size: 0.65rem; color: var(--muted); font-weight: 400; letter-spacing: 0; margin-top: 3px; text-transform: none; }
+  .pipe-arrow {
+    color: var(--green);
+    font-size: 1.2rem;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── TABLE ── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  .data-table th {
+    background: rgba(0,255,135,0.1);
+    color: var(--green);
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-weight: 300;
+  }
+  .data-table tr:hover td { background: rgba(0,255,135,0.03); }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .badge-green { background: rgba(46,204,113,0.15); color: var(--win); border: 1px solid rgba(46,204,113,0.3); }
+  .badge-yellow { background: rgba(243,156,18,0.15); color: var(--draw); border: 1px solid rgba(243,156,18,0.3); }
+  .badge-red { background: rgba(231,76,60,0.15); color: var(--loss); border: 1px solid rgba(231,76,60,0.3); }
+  .badge-blue { background: rgba(52,152,219,0.15); color: var(--blue); border: 1px solid rgba(52,152,219,0.3); }
+
+  /* ── BAR CHART ── */
+  .bar-chart { display: flex; flex-direction: column; gap: 12px; }
+  .bar-row { display: flex; align-items: center; gap: 14px; }
+  .bar-name { font-size: 0.78rem; font-weight: 500; min-width: 240px; color: var(--text); }
+  .bar-track {
+    flex: 1;
+    height: 22px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--green);
+    width: 0%;
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+  }
+  .bar-fill span {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #000;
+    white-space: nowrap;
+  }
+  .bar-fill.green2 { background: var(--win); }
+  .bar-fill.yellow { background: var(--draw); }
+  .bar-fill.red    { background: var(--loss); }
+  .bar-fill.blue   { background: var(--blue); }
+  .bar-fill.purple { background: #9b59b6; }
+  .bar-fill.gray   { background: #607080; }
+
+  /* ── QUOTE / HIGHLIGHT ── */
+  .highlight-box {
+    border-left: 3px solid var(--green);
+    background: rgba(0,255,135,0.05);
+    border-radius: 0 8px 8px 0;
+    padding: 18px 24px;
+    font-size: 0.95rem;
+    font-weight: 300;
+    color: var(--text);
+    margin: 20px 0;
+  }
+  .highlight-box strong { color: var(--green); font-weight: 700; }
+
+  /* ── TWO-COL LAYOUT ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; }
+
+  /* ── CONFUSION MATRIX ── */
+  .cm-grid {
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr);
+    gap: 3px;
+    max-width: 380px;
+  }
+  .cm-cell {
+    background: var(--panel2);
+    border-radius: 4px;
+    padding: 12px 6px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+  .cm-header { background: transparent; font-size: 0.7rem; color: var(--muted); font-weight: 500; letter-spacing: 1px; }
+  .cm-diag { background: rgba(0,255,135,0.15) !important; color: var(--green); }
+  .cm-axis { background: transparent; font-size: 0.72rem; color: var(--muted); display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; }
+
+  /* ── FEATURE IMPORTANCE ── */
+  .fi-list { display: flex; flex-direction: column; gap: 9px; }
+  .fi-row { display: flex; align-items: center; gap: 10px; }
+  .fi-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text);
+    min-width: 200px;
+  }
+  .fi-bar-track { flex: 1; height: 14px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+  .fi-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--green2), var(--green));
+    width: 0%;
+    transition: width 1.4s cubic-bezier(0.4,0,0.2,1);
+  }
+  .fi-val { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); min-width: 44px; text-align: right; }
+
+  /* ── DONUT ── */
+  .donut-wrap { position: relative; width: 180px; height: 180px; }
+  .donut-wrap svg { width: 100%; height: 100%; }
+  .donut-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+  }
+  .donut-label .big { font-size: 2rem; color: var(--green); }
+  .donut-label .sm  { font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; }
+
+  /* ── CONCLUSION ── */
+  #s10 {
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(0,255,135,0.06) 0%, transparent 70%),
+      var(--dark);
+    text-align: center;
+    align-items: center;
+  }
+  .future-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 36px;
+    max-width: 800px;
+  }
+  .future-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    font-size: 0.85rem;
+    font-weight: 300;
+  }
+  .future-item .fi-icon { font-size: 1.6rem; margin-bottom: 8px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--dark); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .card-grid.cols-2, .card-grid.cols-3, .card-grid.cols-4,
+    .two-col, .three-col, .future-grid { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; align-items: flex-start; }
+    .pipe-arrow { transform: rotate(90deg); }
+    .bar-name { min-width: 140px; font-size: 0.7rem; }
+    nav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">⚽ ML Football</div>
+  <ul class="nav-links">
+    <li><a href="#s1">Title</a></li>
+    <li><a href="#s2">Intro</a></li>
+    <li><a href="#s3">Dataset</a></li>
+    <li><a href="#s4">Features</a></li>
+    <li><a href="#s5">Pipeline</a></li>
+    <li><a href="#s6">Models</a></li>
+    <li><a href="#s7">Results</a></li>
+    <li><a href="#s8">Discussion</a></li>
+    <li><a href="#s9">Features Imp.</a></li>
+    <li><a href="#s10">Conclusion</a></li>
+  </ul>
+</nav>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 1 — TITLE
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s1" style="padding-top:100px;">
+  <div class="pitch-lines"></div>
+  <div class="title-eyebrow">CSCI417 · Machine Intelligence · Nile University</div>
+  <h1 class="main-title">Predicting European<br><span>Football Match</span><br>Outcomes</h1>
+  <p class="title-sub">A Machine Learning Approach Leveraging Advanced Performance Metrics and SMOTE</p>
+  <div class="authors-block">
+    <span class="author-chip">Yousef Ali</span>
+    <span class="author-chip">Yousef Nasr</span>
+    <span class="author-chip">Mostafa Ismael</span>
+    <span class="author-chip">Yahia Aly</span>
+    <span class="author-chip">Yousef Yacoup</span>
+  </div>
+  <p class="inst-line">School of Information Technology and Computer Science (ITCS) · Nile University, Giza, Egypt</p>
+  <p class="inst-line" style="margin-top:6px;">Supervised by: Prof. Amal Foad AbdElhady · TA Salma Khaled Hegazy</p>
+  <div class="tag-row">
+    <span class="tag">Machine Learning</span>
+    <span class="tag">Sports Analytics</span>
+    <span class="tag">Football Prediction</span>
+    <span class="tag">SMOTE</span>
+    <span class="tag">Class Imbalance</span>
+  </div>
+  <span class="slide-num">01 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 2 — INTRODUCTION & PROBLEM
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s2">
+  <div class="section-eyebrow">Introduction</div>
+  <h2 class="section-title">The <span>Problem</span> Space</h2>
+  <div class="two-col">
+    <div>
+      <div class="card-grid cols-1" style="gap:16px;">
+        <div class="card">
+          <div class="card-icon">⚽</div>
+          <h3>Why Football is Hard</h3>
+          <p>Unlike basketball, football is a <strong style="color:var(--green)">rare-scoring, high-variance</strong> sport. A single goal abruptly changes match trajectory, making algorithmic prediction exceptionally challenging.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🎯</div>
+          <h3>Our Task</h3>
+          <p>Multi-class classification across <strong style="color:var(--green)">5 major European leagues</strong>: predict match outcome as <span class="badge badge-green">WIN</span> &nbsp;<span class="badge badge-yellow">DRAW</span>&nbsp; <span class="badge badge-red">LOSS</span></p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🚨</div>
+          <h3>The Draw Blindness Problem</h3>
+          <p>Draws are less frequent than decisive outcomes and share statistical similarities with both narrow wins and narrow losses. Algorithms <strong style="color:var(--loss)">inherently fail</strong> to isolate the "draw" profile.</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:16px;">Our Contributions</p>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="highlight-box">
+          <strong>① Temporal Pipeline</strong><br>
+          A rigorous feature engineering pipeline using exclusively in-game performance metrics, explicitly preventing data leakage via shift(1) rolling windows.
+        </div>
+        <div class="highlight-box">
+          <strong>② Draw Blindness Fix</strong><br>
+          Applied SMOTE to the training set to force spatial representation of the draw class — strictly isolated from the test set.
+        </div>
+        <div class="highlight-box">
+          <strong>③ Systematic Comparison</strong><br>
+          Five distinct algorithms — Random Forest, Logistic Regression, SVM, XGBoost, Linear Regression — evaluated with GridSearchCV and Time Series CV.
+        </div>
+        <div class="highlight-box">
+          <strong>④ Interactive Demo</strong><br>
+          A Flask-based live prediction engine with sliders for venue, form streak, rest days, possession, and opponent defense quality.
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="slide-num">02 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 3 — DATASET & PREPROCESSING
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s3">
+  <div class="section-eyebrow">Dataset & Preprocessing</div>
+  <h2 class="section-title">Cleaning the <span>Raw Data</span></h2>
+  <div class="two-col">
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">Dataset Coverage</p>
+      <div class="card-grid cols-2" style="margin-bottom:24px;">
+        <div class="metric-box"><div class="metric-val">5</div><div class="metric-label">Leagues</div></div>
+        <div class="metric-box"><div class="metric-val blue">68+</div><div class="metric-label">Final Features</div></div>
+        <div class="metric-box"><div class="metric-val win">3</div><div class="metric-label">Target Classes</div></div>
+        <div class="metric-box"><div class="metric-val draw">70%</div><div class="metric-label">Drop Threshold</div></div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:8px;">LEAGUES COVERED</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <span class="badge badge-blue">Premier League 🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>
+        <span class="badge badge-blue">Bundesliga 🇩🇪</span>
+        <span class="badge badge-blue">La Liga 🇪🇸</span>
+        <span class="badge badge-blue">Ligue 1 🇫🇷</span>
+        <span class="badge badge-blue">Serie A 🇮🇹</span>
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">Preprocessing Steps</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="card" style="padding:14px 18px;">
+          <h3 style="margin-bottom:4px;">① xG Imputation Formula</h3>
+          <div class="code-block" style="margin-top:8px;font-size:0.78rem;">xG = (Shots_on_target × 0.3) + (Shots_off_target × 0.1)</div>
+          <p style="font-size:0.82rem;margin-top:6px;color:var(--muted);">Applied to all historical matches with missing Expected Goals data</p>
+        </div>
+        <div class="card" style="padding:14px 18px;">
+          <h3 style="margin-bottom:4px;">② Outlier Detection — IQR Method</h3>
+          <p style="font-size:0.82rem;color:var(--text);">Applied on: <code style="color:var(--green);font-size:0.78rem;">Shots off target · Shots on target · Fouls · Corner kicks · Yellow cards</code></p>
+        </div>
+        <div class="card" style="padding:14px 18px;">
+          <h3 style="margin-bottom:4px;">③ Skewness Transformations</h3>
+          <p style="font-size:0.82rem;color:var(--text);">
+            <code style="color:var(--draw);">√x</code> → Total Shots &nbsp;|&nbsp;
+            <code style="color:var(--draw);">log(1+x)</code> → xG, Goals For, Goals Against
+          </p>
+        </div>
+        <div class="card" style="padding:14px 18px;">
+          <h3 style="margin-bottom:4px;">④ Encoding</h3>
+          <p style="font-size:0.82rem;color:var(--text);">
+            Ball possession % → float · venue → <code style="color:var(--green);">is_home</code> (0/1) · season → <code style="color:var(--green);">season_start_year</code> · added <code style="color:var(--green);">goal_difference</code>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="slide-num">03 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 4 — FEATURE ENGINEERING
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s4">
+  <div class="section-eyebrow">Feature Engineering</div>
+  <h2 class="section-title">Building <span>68+ Features</span></h2>
+  <div class="highlight-box" style="margin-bottom:28px;">
+    <strong>Critical Design Choice:</strong> All match-day variables were shifted and aggregated using <code style="color:var(--green);">shift(1)</code> before rolling — ensuring the model observes a team's form strictly <em>excluding</em> the target match, preventing data leakage.
+  </div>
+  <div class="three-col">
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:12px;">Rolling Windows</p>
+      <div class="card">
+        <h3>Windows: 3, 5, 10 Matches</h3>
+        <p style="font-size:0.85rem;">Applied on all core stat columns:<br>Corner kicks · xG · Ball possession · Shots off/on target · Yellow/Red cards · Fouls · Goals for/against</p>
+      </div>
+      <div class="code-block" style="margin-top:14px;font-size:0.76rem;"><span class="code-comment"># Shift then roll — no leakage</span>
+series.shift(1).rolling(window, min_periods=1).mean()</div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:12px;">Form Features</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="card" style="padding:10px 14px;"><h3 style="font-size:0.7rem;">Rolling Points</h3><p style="font-size:0.8rem;">Accumulated match points over last N games</p></div>
+        <div class="card" style="padding:10px 14px;"><h3 style="font-size:0.7rem;">Win / Draw / Loss Rate</h3><p style="font-size:0.8rem;">Relative outcome frequency over windows</p></div>
+        <div class="card" style="padding:10px 14px;"><h3 style="font-size:0.7rem;">Clean Sheet Frequency</h3><p style="font-size:0.8rem;">Proportion of matches with Goals Against = 0</p></div>
+        <div class="card" style="padding:10px 14px;"><h3 style="font-size:0.7rem;">Conversion Rate & xG Diff</h3><p style="font-size:0.8rem;">Goals / Total Shots · xG – Goals Against</p></div>
+        <div class="card" style="padding:10px 14px;"><h3 style="font-size:0.7rem;">Win / Loss Streak</h3><p style="font-size:0.8rem;">Consecutive outcomes counter (+/−)</p></div>
+        <div class="card" style="padding:10px 14px;"><h3 style="font-size:0.7rem;">Days of Rest</h3><p style="font-size:0.8rem;">Date-delta between consecutive fixtures</p></div>
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:12px;">Opponent & Venue Split</p>
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Opponent Defense Stats</h3>
+        <p style="font-size:0.85rem;"><code style="color:var(--green);">opp_def_r5</code> — goals allowed by opponent over last 5 matches<br><code style="color:var(--green);">opp_xg_att_r5</code> — xG allowed by opponent</p>
+      </div>
+      <div class="card">
+        <h3>Venue-Split Rolling</h3>
+        <p style="font-size:0.85rem;">Rolling stats bifurcated into <strong style="color:var(--win);">Home</strong> and <strong style="color:var(--draw);">Away</strong> separately — recognizing the immense power of home-field advantage on form metrics.</p>
+      </div>
+      <div class="metric-box" style="margin-top:12px;">
+        <div class="metric-val">68+</div>
+        <div class="metric-label">Total Features Generated</div>
+      </div>
+    </div>
+  </div>
+  <span class="slide-num">04 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 5 — PIPELINE ARCHITECTURE
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s5">
+  <div class="section-eyebrow">Methodology</div>
+  <h2 class="section-title">System <span>Pipeline</span></h2>
+  <div class="pipeline" id="pipeline">
+    <div class="pipe-step">Raw Data<small>CSV</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">Cleaning &amp; Imputation<small>xG formula, NaN drop, dedup</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">Feature Engineering<small>shift(1) rolling windows</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">Train / Test Split<small>80% / 20%</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">SMOTE<small>training set only</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">Model Training<small>GridSearchCV / TimeSeriesCV</small></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step">Evaluation<small>Accuracy · Macro F1 · Draw Recall</small></div>
+  </div>
+  <div class="highlight-box" style="margin:20px 0;">
+    <strong>SMOTE Isolation:</strong> Synthetic minority samples are generated <em>strictly within the training set</em>. The test set always contains only real match records — ensuring no synthetic data infiltrates the validation environment.
+  </div>
+  <div class="two-col" style="margin-top:10px;">
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:12px;">Class Balance — Before vs After SMOTE</p>
+      <div class="card-grid cols-3" style="gap:12px;margin-bottom:16px;">
+        <div class="metric-box"><div class="metric-val win" style="font-size:1.8rem;">W</div><div class="metric-label">Majority Class</div></div>
+        <div class="metric-box"><div class="metric-val draw" style="font-size:1.8rem;">D</div><div class="metric-label">Minority — Rare</div></div>
+        <div class="metric-box"><div class="metric-val loss" style="font-size:1.8rem;">L</div><div class="metric-label">Mid-frequency</div></div>
+      </div>
+      <div class="highlight-box">
+        After SMOTE: all three classes reach <strong>equal representation</strong> in the training set. The model can no longer cheat by guessing the majority class.
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:12px;">Evaluation Metrics Chosen</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="card" style="padding:12px 16px;">
+          <h3>Accuracy</h3>
+          <p style="font-size:0.85rem;">Overall correct predictions — but misleading with imbalanced classes (Accuracy Paradox)</p>
+        </div>
+        <div class="card" style="padding:12px 16px;">
+          <h3>Macro F1</h3>
+          <p style="font-size:0.85rem;">Unweighted average F1 across all 3 classes — penalises draw-blindness directly</p>
+        </div>
+        <div class="card" style="padding:12px 16px;">
+          <h3>Draw Recall</h3>
+          <p style="font-size:0.85rem;">Specifically measures how many actual draws the model correctly identified — our key diagnostic metric</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="slide-num">05 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 6 — MODELS
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s6">
+  <div class="section-eyebrow">Methodology</div>
+  <h2 class="section-title">The Five <span>Models</span></h2>
+  <div class="card-grid cols-2" style="gap:18px;">
+    <div class="card">
+      <div class="card-icon">🌲</div>
+      <h3>Random Forest</h3>
+      <p style="font-size:0.85rem;margin-bottom:10px;">Baseline: <code style="color:var(--green);">n_estimators=100, max_depth=10</code></p>
+      <p style="font-size:0.85rem;">Tuned via GridSearchCV:<br>
+        <code style="color:var(--draw);font-size:0.78rem;">n_estimators: [100,200]<br>max_depth: [10,20,None]<br>min_samples_split: [2,5]</code>
+      </p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-top:8px;">+ SMOTE balanced training set</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">📈</div>
+      <h3>Logistic Regression</h3>
+      <p style="font-size:0.85rem;margin-bottom:10px;">Pipeline: <code style="color:var(--green);">StandardScaler → LR</code></p>
+      <p style="font-size:0.85rem;">GridSearchCV:<br>
+        <code style="color:var(--draw);font-size:0.78rem;">C: [0.01, 0.1, 1, 10, 100]<br>penalty: [l1, l2]<br>solver: saga (supports both)</code>
+      </p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-top:8px;">Optimised for Macro F1 scoring</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔵</div>
+      <h3>Support Vector Machine</h3>
+      <p style="font-size:0.85rem;margin-bottom:10px;">Pipeline: <code style="color:var(--green);">StandardScaler → SVC</code></p>
+      <p style="font-size:0.85rem;">GridSearchCV:<br>
+        <code style="color:var(--draw);font-size:0.78rem;">C: [0.1, 1, 10]<br>gamma: [scale, 0.1, 0.01]<br>kernel: [rbf, linear]</code>
+      </p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-top:8px;">Searches nonlinear high-dimensional space</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <h3>XGBoost</h3>
+      <p style="font-size:0.85rem;margin-bottom:10px;">TimeSeriesSplit (5 folds) — respects temporal ordering</p>
+      <p style="font-size:0.85rem;">
+        <code style="color:var(--draw);font-size:0.78rem;">n_estimators=1500<br>learning_rate=0.03<br>max_depth=5<br>early_stopping_rounds=75</code>
+      </p>
+      <p style="font-size:0.82rem;color:var(--muted);margin-top:8px;">Sample weights injected for class balance</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px;padding:16px 22px;display:flex;align-items:center;gap:20px;">
+    <div style="font-size:1.4rem;">📐</div>
+    <div>
+      <h3 style="margin-bottom:4px;">Linear Regression (Benchmark)</h3>
+      <p style="font-size:0.85rem;">Baseline Ordinary Least Squares fitted against numerically mapped targets (0, 1, 2). Predictions rounded and clipped to classify. Demonstrates the floor performance of a non-classification approach.</p>
+    </div>
+  </div>
+  <span class="slide-num">06 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 7 — RESULTS TABLE + BAR CHART
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s7">
+  <div class="section-eyebrow">Experiments & Results</div>
+  <h2 class="section-title">Model <span>Performance</span></h2>
+  <div class="two-col" style="gap:50px;">
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">Table I — Hold-out Test Set</p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Accuracy</th>
+            <th>Macro F1</th>
+            <th>Draw Recall</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Baseline Random Forest</td>
+            <td>65.39%</td>
+            <td>0.59</td>
+            <td><span class="badge badge-red">0.21</span></td>
+          </tr>
+          <tr>
+            <td><strong style="color:var(--green)">RF (Tuned + SMOTE)</strong></td>
+            <td><strong style="color:var(--green)">89.22%</strong></td>
+            <td><strong style="color:var(--green)">0.89</strong></td>
+            <td><span class="badge badge-green">0.85</span></td>
+          </tr>
+          <tr>
+            <td>SVM (Tuned + SMOTE)</td>
+            <td>88.84%</td>
+            <td>0.89</td>
+            <td><span class="badge badge-green">0.84</span></td>
+          </tr>
+          <tr>
+            <td>XGBoost (Temporal CV)</td>
+            <td>61.38%</td>
+            <td>0.53</td>
+            <td><span class="badge badge-yellow">0.36</span></td>
+          </tr>
+          <tr>
+            <td>Logistic Regression</td>
+            <td>51.59%</td>
+            <td>0.50</td>
+            <td><span class="badge badge-yellow">0.53</span></td>
+          </tr>
+          <tr>
+            <td>Linear Regression (Rounded)</td>
+            <td>49.80%</td>
+            <td>N/A</td>
+            <td><span class="badge badge-red">0.02</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:20px;">
+        <p class="section-eyebrow" style="margin-bottom:10px;">Confusion Matrix — RF Tuned (SMOTE)</p>
+        <div class="cm-grid">
+          <div class="cm-header"></div>
+          <div class="cm-header">Pred WIN</div>
+          <div class="cm-header">Pred DRAW</div>
+          <div class="cm-header">Pred LOSS</div>
+          <div class="cm-axis">Actual WIN</div>
+          <div class="cm-cell cm-diag">1612</div>
+          <div class="cm-cell">39</div>
+          <div class="cm-cell">138</div>
+          <div class="cm-axis">Actual DRAW</div>
+          <div class="cm-cell">85</div>
+          <div class="cm-cell cm-diag">1010</div>
+          <div class="cm-cell">100</div>
+          <div class="cm-axis">Actual LOSS</div>
+          <div class="cm-cell">109</div>
+          <div class="cm-cell">43</div>
+          <div class="cm-cell cm-diag">1632</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">Accuracy Comparison — All Models</p>
+      <div class="bar-chart" id="results-bars">
+        <div class="bar-row">
+          <div class="bar-name">RF (Tuned + SMOTE)</div>
+          <div class="bar-track"><div class="bar-fill green2" data-val="89.22"><span>89.22%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">SVM (Tuned + SMOTE)</div>
+          <div class="bar-track"><div class="bar-fill green2" data-val="88.84"><span>88.84%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">RF Baseline (Win/Not Win)</div>
+          <div class="bar-track"><div class="bar-fill blue" data-val="74.94"><span>74.94%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">RF Baseline (3-Class)</div>
+          <div class="bar-track"><div class="bar-fill blue" data-val="65.39"><span>65.39%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">XGBoost (Temporal Hold-out)</div>
+          <div class="bar-track"><div class="bar-fill yellow" data-val="61.38"><span>61.38%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">Logistic Regression (Tuned)</div>
+          <div class="bar-track"><div class="bar-fill yellow" data-val="51.59"><span>51.59%</span></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">Linear Regression (Rounded)</div>
+          <div class="bar-track"><div class="bar-fill gray" data-val="49.80"><span>49.80%</span></div></div>
+        </div>
+      </div>
+      <div style="margin-top:28px;">
+        <p class="section-eyebrow" style="margin-bottom:10px;">Draw Recall — Before vs After SMOTE</p>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <div class="bar-name">RF Baseline — Draw Recall</div>
+            <div class="bar-track"><div class="bar-fill red" data-val="21"><span>0.21</span></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-name">RF Tuned + SMOTE — Draw Recall</div>
+            <div class="bar-track"><div class="bar-fill green2" data-val="85"><span>0.85</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span class="slide-num">07 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 8 — DISCUSSION
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s8">
+  <div class="section-eyebrow">Discussion</div>
+  <h2 class="section-title">Key <span>Findings</span></h2>
+  <div class="three-col">
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">① Resolving Draw Blindness</p>
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Baseline RF Draw Recall</h3>
+        <div class="metric-val loss" style="font-size:2.5rem;">0.21</div>
+        <p style="font-size:0.82rem;margin-top:8px;color:var(--muted);">Model overwhelmingly favored wins and losses, nearly ignoring draws</p>
+      </div>
+      <div class="card">
+        <h3>After SMOTE — Draw Recall</h3>
+        <div class="metric-val win" style="font-size:2.5rem;">0.85</div>
+        <p style="font-size:0.82rem;margin-top:8px;color:var(--muted);">SMOTE injected interpolative synthetic draw points across continuous feature dimensions</p>
+      </div>
+      <div class="highlight-box" style="margin-top:12px;">
+        Draw recall improved by <strong>+305%</strong> from SMOTE alone.
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">② The Accuracy Paradox</p>
+      <div class="highlight-box">
+        Applying SMOTE to Logistic Regression <strong>dropped raw accuracy</strong> from ~52% to ~50%. Yet the model transitioned from a <strong style="color:var(--loss)">mathematically flawed heuristic</strong> (blindly guessing majority classes) into an <strong style="color:var(--win)">honest predictor</strong>.
+      </div>
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
+        <div class="metric-box">
+          <div class="metric-val loss" style="font-size:1.6rem;">52% → 50%</div>
+          <div class="metric-label">Accuracy (dropped)</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val win" style="font-size:1.6rem;">↑ Macro F1</div>
+          <div class="metric-label">Honest multi-class performance</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val win" style="font-size:1.6rem;">↑ Precision-Recall Balance</div>
+          <div class="metric-label">Across all three classes</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">③ Systemic WIN Bias</p>
+      <div class="highlight-box">
+        Despite intensive over-sampling, nearly all algorithms exhibited <strong>residual bias toward the Home Win</strong>. Football inherently features psychological and physiological home advantage — the algorithms accurately mirror this ground truth.
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <h3>Observed in the Live Demo</h3>
+        <p style="font-size:0.85rem;">Even with a form streak of −5 and 2 days rest, the model predicted WIN when opponent defense was weak (4.0 goals/game) — confirming <code style="color:var(--green);">opp_def_r5</code> dominance.</p>
+      </div>
+      <div class="card" style="margin-top:12px;">
+        <h3>is_home Boundary</h3>
+        <p style="font-size:0.85rem;">When offensive rolling features lie in chaotic margins, the model defaults to predicting <code style="color:var(--green);">is_home=1</code> as the safe prior.</p>
+      </div>
+    </div>
+  </div>
+  <span class="slide-num">08 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 9 — FEATURE IMPORTANCE
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s9">
+  <div class="section-eyebrow">Feature Importance Analysis</div>
+  <h2 class="section-title">What the Model <span>Actually Learned</span></h2>
+  <div class="two-col" style="gap:50px;">
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">Top 20 Features — Random Forest</p>
+      <div class="fi-list" id="fi-list">
+        <div class="fi-row"><div class="fi-name">roll5_pts_home</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="100"></div></div><div class="fi-val">0.040</div></div>
+        <div class="fi-row"><div class="fi-name">roll5_pts_away</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="92"></div></div><div class="fi-val">0.037</div></div>
+        <div class="fi-row"><div class="fi-name">streak</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="82"></div></div><div class="fi-val">0.033</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_draw_rate</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="78"></div></div><div class="fi-val">0.031</div></div>
+        <div class="fi-row"><div class="fi-name">is_home</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="73"></div></div><div class="fi-val">0.029</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_points</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="70"></div></div><div class="fi-val">0.028</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_win_rate</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="65"></div></div><div class="fi-val">0.026</div></div>
+        <div class="fi-row"><div class="fi-name">roll5_gf_home</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="60"></div></div><div class="fi-val">0.024</div></div>
+        <div class="fi-row"><div class="fi-name">roll5_ga_home</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="57"></div></div><div class="fi-val">0.023</div></div>
+        <div class="fi-row"><div class="fi-name">roll5_ga_away</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="53"></div></div><div class="fi-val">0.021</div></div>
+        <div class="fi-row"><div class="fi-name">roll5_gf_away</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="50"></div></div><div class="fi-val">0.020</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_goal_diff</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="47"></div></div><div class="fi-val">0.019</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_draw_rate</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="44"></div></div><div class="fi-val">0.018</div></div>
+        <div class="fi-row"><div class="fi-name">opp_def_r5</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="42"></div></div><div class="fi-val">0.017</div></div>
+        <div class="fi-row"><div class="fi-name">roll5_points</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="40"></div></div><div class="fi-val">0.016</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_Goals_for</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="37"></div></div><div class="fi-val">0.015</div></div>
+        <div class="fi-row"><div class="fi-name">days_rest</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="35"></div></div><div class="fi-val">0.014</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_Goals_against</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="32"></div></div><div class="fi-val">0.013</div></div>
+        <div class="fi-row"><div class="fi-name">roll3_xG_diff</div><div class="fi-bar-track"><div class="fi-bar-fill" data-val="30"></div></div><div class="fi-val">0.012</div></div>
+      </div>
+    </div>
+    <div>
+      <p class="section-eyebrow" style="margin-bottom:14px;">Key Insight: Opponent Defense Dominance</p>
+      <div class="highlight-box" style="margin-bottom:20px;">
+        While offensive metrics (xG, conversion rate) are historically favored by pundits, our modelling confirms that <strong>a defensively weak opponent is mathematically more actionable and predictable</strong> than a strong overarching team offense.
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <h3>opp_def_r5 Explained</h3>
+        <p style="font-size:0.85rem;">The 5-match rolling average of goals allowed by the opposing team. Setting this to 4.0 (terrible defense) pushed WIN probability to 44%+ even with terrible team form — confirming this feature's outsized influence on the model.</p>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <h3>Rolling Points Split (Home/Away)</h3>
+        <p style="font-size:0.85rem;"><code style="color:var(--green);">roll5_pts_home</code> and <code style="color:var(--green);">roll5_pts_away</code> are the #1 and #2 most important features — confirming venue-split form is more informative than aggregate form.</p>
+      </div>
+      <div class="card">
+        <h3>Streak Effect</h3>
+        <p style="font-size:0.85rem;">The consecutive win/loss streak (#3 feature) captures momentum effects that rolling averages smooth over — a team on a 5-game win streak is qualitatively different from one averaging 2pts/game.</p>
+      </div>
+    </div>
+  </div>
+  <span class="slide-num">09 / 10</span>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 10 — CONCLUSION
+═══════════════════════════════════════════════ -->
+<section class="slide" id="s10">
+  <div class="section-eyebrow">Conclusion</div>
+  <h2 class="section-title" style="margin-bottom:12px;">What We <span>Proved</span></h2>
+  <p style="font-size:1rem;color:var(--muted);max-width:680px;margin-bottom:36px;">A comprehensive ML pipeline that bypassed the traditional pitfalls of sports analytics — specifically data leakage and Draw Blindness — across 5 European leagues.</p>
+
+  <div class="card-grid cols-4" style="max-width:900px;margin-bottom:40px;">
+    <div class="metric-box">
+      <div class="metric-val win">89.22%</div>
+      <div class="metric-label">Best Accuracy<br>RF Tuned + SMOTE</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-val win">0.89</div>
+      <div class="metric-label">Best Macro F1<br>RF & SVM Tuned</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-val draw">0.85</div>
+      <div class="metric-label">Draw Recall<br>RF Tuned + SMOTE</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-val blue">68+</div>
+      <div class="metric-label">Engineered Features<br>No data leakage</div>
+    </div>
+  </div>
+
+  <p class="section-eyebrow" style="margin-bottom:16px;">Future Work Directions</p>
+  <div class="future-grid">
+    <div class="future-item">
+      <div class="fi-icon">🧠</div>
+      <strong style="color:var(--green);">Deep Temporal Models</strong><br>
+      RNN / LSTM architectures to continuously map player tracking data across match sequences
+    </div>
+    <div class="future-item">
+      <div class="fi-icon">👤</div>
+      <strong style="color:var(--green);">Player-Level Metadata</strong><br>
+      Integrate individual player form, injury status, and lineup changes as additional features
+    </div>
+    <div class="future-item">
+      <div class="fi-icon">🔴</div>
+      <strong style="color:var(--green);">Live API Integration</strong><br>
+      Dynamic real-time updates to rest days, fatigue schedules, and opponent stats via live webhooks
+    </div>
+  </div>
+
+  <div style="margin-top:50px;border-top:1px solid var(--border);padding-top:28px;text-align:center;">
+    <p style="font-size:0.8rem;color:var(--muted);">
+      School of Information Technology and Computer Science (ITCS) · Nile University, Giza, Egypt<br>
+      CSCI417 Machine Intelligence · 2024–2025
+    </p>
+    <div class="tag-row" style="margin-top:16px;">
+      <span class="tag">Random Forest</span>
+      <span class="tag">Logistic Regression</span>
+      <span class="tag">SVM</span>
+      <span class="tag">XGBoost</span>
+      <span class="tag">SMOTE</span>
+      <span class="tag">TimeSeriesCV</span>
+    </div>
+  </div>
+  <span class="slide-num">10 / 10</span>
+</section>
+
+<!-- ═══════ NAVIGATION BUTTONS ═══════ -->
+<div id="nav-controls">
+  <button id="btn-prev" onclick="navigate(-1)" title="Previous slide (← Arrow)">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Prev
+  </button>
+  <div id="slide-counter">1 / 10</div>
+  <button id="btn-next" onclick="navigate(1)" title="Next slide (→ Arrow)">
+    Next
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+</div>
+
+<!-- ═══════ DOT INDICATORS ═══════ -->
+<div id="dot-nav">
+  <button class="dot active" onclick="goToSlide(0)" title="Title"></button>
+  <button class="dot" onclick="goToSlide(1)" title="Introduction"></button>
+  <button class="dot" onclick="goToSlide(2)" title="Dataset"></button>
+  <button class="dot" onclick="goToSlide(3)" title="Features"></button>
+  <button class="dot" onclick="goToSlide(4)" title="Pipeline"></button>
+  <button class="dot" onclick="goToSlide(5)" title="Models"></button>
+  <button class="dot" onclick="goToSlide(6)" title="Results"></button>
+  <button class="dot" onclick="goToSlide(7)" title="Discussion"></button>
+  <button class="dot" onclick="goToSlide(8)" title="Feature Importance"></button>
+  <button class="dot" onclick="goToSlide(9)" title="Conclusion"></button>
+</div>
+
+<style>
+  /* ── NAV CONTROLS ── */
+  #nav-controls {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(8,14,20,0.92);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0,255,135,0.22);
+    border-radius: 50px;
+    padding: 10px 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,135,0.05);
+  }
+
+  #nav-controls button {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(0,255,135,0.08);
+    border: 1px solid rgba(0,255,135,0.2);
+    color: var(--green);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 18px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    user-select: none;
+  }
+
+  #nav-controls button:hover:not(:disabled) {
+    background: rgba(0,255,135,0.18);
+    border-color: var(--green);
+    transform: scale(1.04);
+    box-shadow: 0 0 14px rgba(0,255,135,0.25);
+  }
+
+  #nav-controls button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  #nav-controls button:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+    border-color: rgba(0,255,135,0.08);
+    color: var(--muted);
+  }
+
+  #slide-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    min-width: 50px;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  /* ── DOT INDICATORS ── */
+  #dot-nav {
+    position: fixed;
+    right: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(0,255,135,0.2);
+    border: 1px solid rgba(0,255,135,0.3);
+    cursor: pointer;
+    transition: background 0.25s, transform 0.25s, height 0.25s;
+    padding: 0;
+    position: relative;
+  }
+
+  .dot:hover {
+    background: rgba(0,255,135,0.5);
+    transform: scale(1.3);
+  }
+
+  .dot.active {
+    background: var(--green);
+    border-color: var(--green);
+    transform: scaleY(1.0);
+    height: 22px;
+    border-radius: 4px;
+    box-shadow: 0 0 8px rgba(0,255,135,0.5);
+  }
+
+  /* Tooltip on dot hover */
+  .dot::after {
+    content: attr(title);
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(8,14,20,0.95);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    padding: 3px 9px;
+    border-radius: 5px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .dot:hover::after { opacity: 1; }
+
+  @media (max-width: 768px) {
+    #dot-nav { display: none; }
+    #nav-controls { bottom: 16px; padding: 8px 14px; gap: 10px; }
+    #nav-controls button { padding: 7px 14px; font-size: 0.75rem; }
+  }
+</style>
+
+<!-- ═══════════════════════════════════════════════ -->
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+  let isScrolling = false;
+
+  // ── Animate bars when a slide becomes visible ──
+  function animateBarsIn(slide) {
+    slide.querySelectorAll('.bar-fill[data-val]').forEach(bar => {
+      bar.style.width = '0%';
+      setTimeout(() => { bar.style.width = bar.dataset.val + '%'; }, 200);
+    });
+    slide.querySelectorAll('.fi-bar-fill[data-val]').forEach(bar => {
+      bar.style.width = '0%';
+      setTimeout(() => { bar.style.width = bar.dataset.val + '%'; }, 300);
+    });
+  }
+
+  // ── Go to a specific slide index ──
+  function goToSlide(index) {
+    if (index < 0 || index >= slides.length) return;
+    current = index;
+
+    slides[current].scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Mark visible
+    slides.forEach(s => s.classList.remove('visible'));
+    slides[current].classList.add('visible');
+    animateBarsIn(slides[current]);
+
+    // Update counter
+    document.getElementById('slide-counter').textContent = `${current + 1} / ${slides.length}`;
+
+    // Update dots
+    document.querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('active', i === current);
+    });
+
+    // Update button states
+    document.getElementById('btn-prev').disabled = current === 0;
+    document.getElementById('btn-next').disabled = current === slides.length - 1;
+  }
+
+  // ── Navigate by delta (+1 / -1) ──
+  function navigate(delta) {
+    goToSlide(current + delta);
+  }
+
+  // ── Keyboard support ──
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
+      e.preventDefault();
+      navigate(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault();
+      navigate(-1);
+    }
+  });
+
+  // ── Mouse wheel navigation (debounced) ──
+  let wheelTimer = null;
+  window.addEventListener('wheel', e => {
+    if (wheelTimer) return;
+    wheelTimer = setTimeout(() => { wheelTimer = null; }, 800);
+    navigate(e.deltaY > 0 ? 1 : -1);
+  }, { passive: true });
+
+  // ── Touch swipe support ──
+  let touchStartY = 0;
+  window.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  window.addEventListener('touchend', e => {
+    const delta = touchStartY - e.changedTouches[0].clientY;
+    if (Math.abs(delta) > 50) navigate(delta > 0 ? 1 : -1);
+  }, { passive: true });
+
+  // ── Init first slide ──
+  goToSlide(0);
+</script>
+</body>
+</html>
